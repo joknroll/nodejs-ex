@@ -32,22 +32,24 @@ if (mongoURL == null && process.env.DATABASE_SERVICE_NAME) {
 
   }
 }
+
+
 var db = null,
     dbDetails = new Object();
 
 var initDb = function(callback) {
   if (mongoURL == null) return;
 
-  var mongodb = require('mongodb');
-  if (mongodb == null) return;
+  var MongoClient = require('mongodb').MongoClient;
+  if (MongoClient == null) return;
 
-  mongodb.connect(mongoURL, function(err, conn) {
+  MongoClient.connect(mongoURL, function(err, conn) {
     if (err) {
       callback(err);
       return;
     }
 
-    db = conn;
+    db = conn.db("test");
     dbDetails.databaseName = db.databaseName;
     dbDetails.url = mongoURLLabel;
     dbDetails.type = 'MongoDB';
@@ -65,7 +67,10 @@ app.get('/', function (req, res) {
   if (db) {
     var col = db.collection('counts');
     // Create a document with request IP and current time of request
-    col.insert({ip: req.ip, date: Date.now()});
+    // col.insert({ip: req.ip, date: Date.now()});
+
+    insert(req);
+
     col.count(function(err, count){
       if (err) {
         console.log('Error running count. Message:\n'+err);
@@ -76,6 +81,18 @@ app.get('/', function (req, res) {
     res.render('index.html', { pageCountMessage : null});
   }
 });
+
+
+var insert = function(req){
+    var col = db.collection('counts');
+
+    col.insert({ip: req.ip, date: Date.now()}).then((result)=>{
+        console.log(result);
+    })
+    .catch((err)=>{
+        console.error(err)
+    })
+};
 
 app.get('/pagecount', function (req, res) {
   // try to initialize the db on every request if it's not already
