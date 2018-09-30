@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>Hello</title>
+
+
+</head>
+<body>
+
+<h1>HOPS</h1>
+
+    <% if (hops) { %>
+
+    <span ><%=hops.length%></span>
+
+    <%} %>
+
+
+
+<ul><%
+
+    for(var i = 0 ; i < hops.length ; i++) {%>
+
+		<li>
+		    <%= hops[i].name %>
+		</li>
+
+	<% } %>
+</ul>    
+    
+</body>
+</html>

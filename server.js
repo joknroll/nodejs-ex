@@ -1,7 +1,8 @@
 //  OpenShift sample Node application
 var express = require('express'),
     app     = express(),
-    morgan  = require('morgan');
+    morgan  = require('morgan'),
+    user    = require('./auth/user.js');
     
 Object.assign=require('object-assign')
 
@@ -119,12 +120,45 @@ app.get('/hops', function (req, res) {
   }
 
   if (db) {
+    var hopList = [];
     db.collection('test').find({}).toArray(function(err, list ){
-      res.send('{ hops: ' + JSON.stringify(list) + '}');
+      // console.log('list hops '+ JSON.stringify(list));
+      hopList =  JSON.stringify(list);
+      // hops = JSON.stringify(list);
+      //res.send('{ hops: ' + JSON.stringify(list) + '}');
+      res.render('hops.html', { 'hops' : list});
     });
+    console.log('after list hops '+ JSON.stringify(hopList));
+    // res.render('hops.html', { 'hops' : hopList});
   } else {
     res.send('{ hops: -1 }');
   }
+});
+
+app.post('/user', function (req, res){
+
+  if (req.body.email &&
+    req.body.username &&
+    req.body.password &&
+    req.body.passwordConf) {
+
+    var userData = {
+      email: req.body.email,
+      username: req.body.username,
+      password: req.body.password,
+      passwordConf: req.body.passwordConf,
+    }
+
+    //use schema.create to insert data into the db
+    User.create(userData, function (err, user) {
+      if (err) {
+        return next(err)
+      } else {
+        return res.redirect('/profile');
+      }
+    });
+  }
+
 });
 
 // error handling
