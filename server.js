@@ -2,7 +2,8 @@
 var express = require('express'),
     app     = express(),
     morgan  = require('morgan'),
-    user    = require('./auth/user.js');
+    user    = require('./auth/user.js'),
+    mongoose = require('mongoose');
     
 Object.assign=require('object-assign')
 
@@ -44,20 +45,26 @@ var initDb = function(callback) {
   var MongoClient = require('mongodb').MongoClient;
   if (MongoClient == null) return;
 
-  MongoClient.connect(mongoURL, function(err, conn) {
-    if (err) {
-      callback(err);
-      return;
-    }
 
-    db = conn.db("test");
-    dbDetails.databaseName = db.databaseName;
-    dbDetails.url = mongoURLLabel;
-    dbDetails.type = 'MongoDB';
-
-    console.log('Connected to MongoDB at: %s', mongoURL);
-  });
+  mongoose.connect(mongoURL).then(
+        () => {console.log('Database connection is successful at: %s', mongoURL); db = true },
+        err => { console.log('Error when connecting to the database'+ err); return;}
+  );
 };
+
+var pageCountMessageSchema = new mongoose.Schema({
+  pageCountMessage: Number
+}, { collection : 'counts' });
+
+var PageCount = mongoose.model('PageCount', pageCountMessageSchema);
+
+
+var visiteInfoSchema = new mongoose.Schema({
+  ip: String, 
+  date: Date
+}, { collection : 'counts' });
+
+var VisiteInfo = mongoose.model('VisiteInfo', visiteInfoSchema);
 
 app.get('/', function (req, res) {
   // try to initialize the db on every request if it's not already
@@ -66,13 +73,23 @@ app.get('/', function (req, res) {
     initDb(function(err){});
   }
   if (db) {
-    var col = db.collection('counts');
+
+    PageCount.find((err, todos) =>{
+      if(err){
+        console.log(err);
+      }
+      else {
+        res.json(todos);
+      }
+    });
+
+    // var col = db.collection('counts');
     // Create a document with request IP and current time of request
     // col.insert({ip: req.ip, date: Date.now()});
 
     insert(req);
-
-    col.count(function(err, count){
+    var visiteInfo = new VisiteInfo({ip: req.ip, date: Date.now()});
+    visiteInfo.countDocuments(function(err, count){
       if (err) {
         console.log('Error running count. Message:\n'+err);
       }
@@ -84,15 +101,13 @@ app.get('/', function (req, res) {
 });
 
 
-var insert = function(req){
-    var col = db.collection('counts');
 
-    col.insert({ip: req.ip, date: Date.now()}).then((result)=>{
-        console.log(result);
-    })
-    .catch((err)=>{
-        console.error(err)
-    })
+var insert = function(req){
+    // var col = db.collection('counts');
+    var visiteInfo = new VisiteInfo({ip: req.ip, date: Date.now()});
+    visiteInfo.save(function(err){
+      if (err) return console.error(err);
+    });
 };
 
 app.get('/pagecount', function (req, res) {
@@ -102,7 +117,7 @@ app.get('/pagecount', function (req, res) {
     initDb(function(err){});
   }
   if (db) {
-    db.collection('counts').count(function(err, count ){
+    visiteInfoSchema.count(function(err, count ){
       res.send('{ pageCount: ' + count + '}');
     });
   } else {
@@ -110,7 +125,7 @@ app.get('/pagecount', function (req, res) {
   }
 });
 
-
+var Hop = require('./core/hops/Hop');
 
 app.get('/hops', function (req, res) {
   // try to initialize the db on every request if it's not already
