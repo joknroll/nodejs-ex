@@ -65,23 +65,20 @@ var visiteInfoSchema = new mongoose.Schema({
 }, { collection : 'counts' });
 
 var VisiteInfo = mongoose.model('VisiteInfo', visiteInfoSchema);
-
+var visiteInfoModel =mongoose.model('visiteInfolists',visiteInfoSchema);
 app.get('/', function (req, res) {
   // try to initialize the db on every request if it's not already
   // initialized.
+  renderHome(req, res);
+
+});
+
+
+async function renderHome(req, res){
   if (!db) {
     initDb(function(err){});
   }
   if (db) {
-
-    PageCount.find((err, todos) =>{
-      if(err){
-        console.log(err);
-      }
-      else {
-        res.json(todos);
-      }
-    });
 
     // var col = db.collection('counts');
     // Create a document with request IP and current time of request
@@ -89,16 +86,12 @@ app.get('/', function (req, res) {
 
     insert(req);
     var visiteInfo = new VisiteInfo({ip: req.ip, date: Date.now()});
-    visiteInfo.countDocuments(function(err, count){
-      if (err) {
-        console.log('Error running count. Message:\n'+err);
-      }
-      res.render('index.html', { pageCountMessage : count, dbInfo: dbDetails });
-    });
+    var thisCount = await visiteInfoModel.countDocuments({});
+    res.render('index.html', { pageCountMessage : thisCount });
   } else {
     res.render('index.html', { pageCountMessage : null});
   }
-});
+}
 
 
 
@@ -117,7 +110,7 @@ app.get('/pagecount', function (req, res) {
     initDb(function(err){});
   }
   if (db) {
-    visiteInfoSchema.count(function(err, count ){
+    visiteInfoModel.count(function(err, count ){
       res.send('{ pageCount: ' + count + '}');
     });
   } else {
