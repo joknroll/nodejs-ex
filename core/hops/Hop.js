@@ -16,7 +16,8 @@ humulene : Number,
 caryophyllene : Number 
 },
 {
-    timestamps: true
+    timestamps: true,
+    collection : 'hops'
 });
 
 module.exports = mongoose.model('Hop', HopSchema);

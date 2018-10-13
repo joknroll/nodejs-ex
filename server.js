@@ -65,7 +65,6 @@ var visiteInfoSchema = new mongoose.Schema({
 }, { collection : 'counts' });
 
 var VisiteInfo = mongoose.model('VisiteInfo', visiteInfoSchema);
-var visiteInfoModel =mongoose.model('visiteInfolists',visiteInfoSchema);
 app.get('/', function (req, res) {
   // try to initialize the db on every request if it's not already
   // initialized.
@@ -85,8 +84,7 @@ async function renderHome(req, res){
     // col.insert({ip: req.ip, date: Date.now()});
 
     insert(req);
-    var visiteInfo = new VisiteInfo({ip: req.ip, date: Date.now()});
-    var thisCount = await visiteInfoModel.countDocuments({});
+    var thisCount = await VisiteInfo.countDocuments({});
     res.render('index.html', { pageCountMessage : thisCount });
   } else {
     res.render('index.html', { pageCountMessage : null});
@@ -128,9 +126,10 @@ app.get('/hops', function (req, res) {
   }
 
   if (db) {
+
     var hopList = [];
-    db.collection('test').find({}).toArray(function(err, list ){
-      // console.log('list hops '+ JSON.stringify(list));
+    Hop.find({},function(err, list ){
+      console.log('list hops '+ JSON.stringify(list));
       hopList =  JSON.stringify(list);
       // hops = JSON.stringify(list);
       //res.send('{ hops: ' + JSON.stringify(list) + '}');
