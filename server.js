@@ -8,6 +8,7 @@ var express = require('express'),
 Object.assign=require('object-assign')
 
 app.engine('html', require('ejs').renderFile);
+app.use(express.static('public'));
 app.use(morgan('combined'))
 
 var port = process.env.PORT || process.env.OPENSHIFT_NODEJS_PORT || 8080,
@@ -72,7 +73,6 @@ app.get('/', function (req, res) {
 
 });
 
-
 async function renderHome(req, res){
   if (!db) {
     initDb(function(err){});
@@ -90,8 +90,6 @@ async function renderHome(req, res){
     res.render('index.html', { pageCountMessage : null});
   }
 }
-
-
 
 var insert = function(req){
     // var col = db.collection('counts');
