@@ -10,6 +10,7 @@ Object.assign=require('object-assign')
 app.engine('html', require('ejs').renderFile);
 app.use(express.static('public'));
 app.use(morgan('combined'))
+app.use('/jquery', express.static(__dirname + '/node_modules/jquery/dist/'));
 
 var port = process.env.PORT || process.env.OPENSHIFT_NODEJS_PORT || 8080,
     ip   = process.env.IP   || process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0',
@@ -114,9 +115,12 @@ app.get('/pagecount', function (req, res) {
   }
 });
 
-var Hop = require('./core/hops/Hop');
 
-app.get('/hops', function (req, res) {
+var Hop = require('./core/hops/Hop');
+var Malt = require('./core/malts/Malt');
+
+app.get('/brewbill', function (req, res) {
+
   // try to initialize the db on every request if it's not already
   // initialized.
   if (!db) {
@@ -125,16 +129,39 @@ app.get('/hops', function (req, res) {
 
   if (db) {
 
-    var hopList = [];
-    Hop.find({},function(err, list ){
-      console.log('list hops '+ JSON.stringify(list));
-      hopList =  JSON.stringify(list);
-      // hops = JSON.stringify(list);
-      //res.send('{ hops: ' + JSON.stringify(list) + '}');
+    var queryHop = Hop.find({});
+    var promiseHop = queryHop.exec();
+
+    var queryMalt = Malt.find({});
+    var promiseMalt = queryMalt.exec();
+
+    Promise.all([promiseHop, promiseMalt]).then(function(values) {
+      res.render('brewbill.html', { 'hops' : values[0], 'malts': values[1]});
+    });
+
+  } else {
+    res.render('brewbill.html', { 'hops' : [], 'malts': []});
+  }
+
+
+});
+
+
+
+app.get('/hops', function (req, res) {
+
+  if (!db) {
+    initDb(function(err){});
+  }
+
+  if (db) {
+    var queryHop = Hop.find({});
+    var promiseHop = queryHop.exec();
+    
+    promiseHop.then(function (list) {
       res.render('hops.html', { 'hops' : list});
     });
-    console.log('after list hops '+ JSON.stringify(hopList));
-    // res.render('hops.html', { 'hops' : hopList});
+
   } else {
     res.send('{ hops: -1 }');
   }
