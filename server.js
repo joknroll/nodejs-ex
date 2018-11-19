@@ -2,12 +2,15 @@
 var express = require('express'),
     app     = express(),
     morgan  = require('morgan'),
-    user    = require('./auth/user.js');
+    user    = require('./auth/user.js'),
+    mongoose = require('mongoose');
     
 Object.assign=require('object-assign')
 
 app.engine('html', require('ejs').renderFile);
+app.use(express.static('public'));
 app.use(morgan('combined'))
+app.use('/jquery', express.static(__dirname + '/node_modules/jquery/dist/'));
 
 var port = process.env.PORT || process.env.OPENSHIFT_NODEJS_PORT || 8080,
     ip   = process.env.IP   || process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0',
@@ -44,55 +47,57 @@ var initDb = function(callback) {
   var MongoClient = require('mongodb').MongoClient;
   if (MongoClient == null) return;
 
-  MongoClient.connect(mongoURL, function(err, conn) {
-    if (err) {
-      callback(err);
-      return;
-    }
 
-    db = conn.db("test");
-    dbDetails.databaseName = db.databaseName;
-    dbDetails.url = mongoURLLabel;
-    dbDetails.type = 'MongoDB';
-
-    console.log('Connected to MongoDB at: %s', mongoURL);
-  });
+  mongoose.connect(mongoURL).then(
+        () => {console.log('Database connection is successful at: %s', mongoURL); db = true },
+        err => { console.log('Error when connecting to the database'+ err); return;}
+  );
 };
 
+var pageCountMessageSchema = new mongoose.Schema({
+  pageCountMessage: Number
+}, { collection : 'counts' });
+
+var PageCount = mongoose.model('PageCount', pageCountMessageSchema);
+
+
+var visiteInfoSchema = new mongoose.Schema({
+  ip: String, 
+  date: Date
+}, { collection : 'counts' });
+
+var VisiteInfo = mongoose.model('VisiteInfo', visiteInfoSchema);
 app.get('/', function (req, res) {
   // try to initialize the db on every request if it's not already
   // initialized.
+  renderHome(req, res);
+
+});
+
+async function renderHome(req, res){
   if (!db) {
     initDb(function(err){});
   }
   if (db) {
-    var col = db.collection('counts');
+
+    // var col = db.collection('counts');
     // Create a document with request IP and current time of request
     // col.insert({ip: req.ip, date: Date.now()});
 
     insert(req);
-
-    col.count(function(err, count){
-      if (err) {
-        console.log('Error running count. Message:\n'+err);
-      }
-      res.render('index.html', { pageCountMessage : count, dbInfo: dbDetails });
-    });
+    var thisCount = await VisiteInfo.countDocuments({});
+    res.render('index.html', { pageCountMessage : thisCount });
   } else {
     res.render('index.html', { pageCountMessage : null});
   }
-});
-
+}
 
 var insert = function(req){
-    var col = db.collection('counts');
-
-    col.insert({ip: req.ip, date: Date.now()}).then((result)=>{
-        console.log(result);
-    })
-    .catch((err)=>{
-        console.error(err)
-    })
+    // var col = db.collection('counts');
+    var visiteInfo = new VisiteInfo({ip: req.ip, date: Date.now()});
+    visiteInfo.save(function(err){
+      if (err) return console.error(err);
+    });
 };
 
 app.get('/pagecount', function (req, res) {
@@ -102,7 +107,7 @@ app.get('/pagecount', function (req, res) {
     initDb(function(err){});
   }
   if (db) {
-    db.collection('counts').count(function(err, count ){
+    visiteInfoModel.count(function(err, count ){
       res.send('{ pageCount: ' + count + '}');
     });
   } else {
@@ -111,8 +116,11 @@ app.get('/pagecount', function (req, res) {
 });
 
 
+var Hop = require('./core/hops/Hop');
+var Malt = require('./core/malts/Malt');
 
-app.get('/hops', function (req, res) {
+app.get('/brewbill', function (req, res) {
+
   // try to initialize the db on every request if it's not already
   // initialized.
   if (!db) {
@@ -120,16 +128,40 @@ app.get('/hops', function (req, res) {
   }
 
   if (db) {
-    var hopList = [];
-    db.collection('test').find({}).toArray(function(err, list ){
-      // console.log('list hops '+ JSON.stringify(list));
-      hopList =  JSON.stringify(list);
-      // hops = JSON.stringify(list);
-      //res.send('{ hops: ' + JSON.stringify(list) + '}');
+
+    var queryHop = Hop.find({});
+    var promiseHop = queryHop.exec();
+
+    var queryMalt = Malt.find({});
+    var promiseMalt = queryMalt.exec();
+
+    Promise.all([promiseHop, promiseMalt]).then(function(values) {
+      res.render('brewbill.html', { 'hops' : values[0], 'malts': values[1]});
+    });
+
+  } else {
+    res.render('brewbill.html', { 'hops' : [], 'malts': []});
+  }
+
+
+});
+
+
+
+app.get('/hops', function (req, res) {
+
+  if (!db) {
+    initDb(function(err){});
+  }
+
+  if (db) {
+    var queryHop = Hop.find({});
+    var promiseHop = queryHop.exec();
+    
+    promiseHop.then(function (list) {
       res.render('hops.html', { 'hops' : list});
     });
-    console.log('after list hops '+ JSON.stringify(hopList));
-    // res.render('hops.html', { 'hops' : hopList});
+
   } else {
     res.send('{ hops: -1 }');
   }
